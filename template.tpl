@@ -14,7 +14,8 @@ ___INFO___
     "ANALYTICS",
     "ADVERTISING",
     "DATA_WAREHOUSING",
-    "MARKETING"
+    "MARKETING",
+    "CONVERSIONS"
   ],
   "__wm": "VGVtcGxhdGUtQXV0aG9yX0ZhY2Vib29rLVNpbW8tQWhhdmE\u003d",
   "description": "This is an official Google Tag Manager template for the Wondaris CDP Webhook.",
