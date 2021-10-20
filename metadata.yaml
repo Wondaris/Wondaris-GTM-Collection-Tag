@@ -1,5 +1,5 @@
 homepage: "https://www.wondaris.com"
 documentation: "https://wondaris.atlassian.net/wiki/spaces/WPK/pages/3480616977/GTM+Tag+Template"
 versions:
-  - sha: 127440ae7b17b04e62502fc30a3a799d080616e8
+  - sha: b448bfb7e6a8f4ec526edaff1069d95a3cb36842
     changeNotes: Initial release.
