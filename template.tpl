@@ -10,13 +10,6 @@ ___INFO___
 
 {
   "displayName": "Wondaris Collection Tag",
-  "categories": [
-    "ANALYTICS",
-    "ADVERTISING",
-    "DATA_WAREHOUSING",
-    "MARKETING",
-    "CONVERSIONS"
-  ],
   "__wm": "VGVtcGxhdGUtQXV0aG9yX0ZhY2Vib29rLVNpbW8tQWhhdmE\u003d",
   "description": "This is an official Google Tag Manager template for the Wondaris CDP Webhook.",
   "securityGroups": [],
@@ -192,8 +185,8 @@ const injectScript = require('injectScript');
 const makeTableMap = require('makeTableMap');
 const getType = require('getType');
 const log = require('logToConsole');
+const queryPermission = require('queryPermission');
 
-const initIds = copyFromWindow('_fbq_gtm_ids') || [];
 const dataSourceSlug = data.dataSource;
 const dataSetSlug = data.dataSet;
 
@@ -226,6 +219,7 @@ let sendConfig = {
 let dataPayload = finalObjectProps;
 
 const loadSuccess = () => {
+  log('Load Success');
   
   // get a refernce to the wndrs object
   wndrs = copyFromWindow('wndrs');
@@ -239,6 +233,7 @@ const loadSuccess = () => {
 };
 
 const loadFailure = () => {
+  log('Load Failure');
   data.gtmOnFailure();
 };
 
@@ -246,11 +241,22 @@ const loadFailure = () => {
 // get a refernce to the wndrs object
 wndrs = copyFromWindow('wndrs');
 
+log('Starting', wndrs);
+
 if(wndrs === undefined) {
   // The SDK is not loaded - let's grab it and run the send
-  injectScript('https://static.wondaris.com/sdks/webhook-collector.min.js', loadSuccess, loadFailure, 'wndrsSDK');
+  let sdkUrl = 'https://static.wondaris.com/sdks/webhook-collector.min.js';
+  
+  if (queryPermission('inject_script', sdkUrl)) {
+    injectScript(sdkUrl, loadSuccess, loadFailure);
+  } else {
+    log('Permissions Failure', sdkUrl);
+    // fail - we are not allowed to laod the SDK!
+    data.gtmOnFailure();
+  }
 } else if (wndrs.webhookCollectorSDKLoaded) {
   // the Wondaris SDK is loaded and ready to rock - just send it
+  log('Run Send Directly', wndrs);
   
   wndrs.sendEvent(dataPayload, sendConfig, function(wndrsResponse) {
     log('Got a response from Wondaris: ', wndrsResponse);
@@ -259,6 +265,8 @@ if(wndrs === undefined) {
     data.gtmOnSuccess();
   });
 } else {
+  
+  log('Run Failure', wndrs);
   // fail - there is a wndrs object on the window, but it is not part of the SDK
   data.gtmOnFailure();
 }
@@ -653,7 +661,62 @@ ___WEB_PERMISSIONS___
 
 ___TESTS___
 
-scenarios: []
+scenarios:
+- name: Test - Only Config
+  code: |-
+    /*
+    This test sends basically no data, just sets the config - this will fail to send as there is no event data; but will not do a GTM Fail.
+    */
+
+
+    // Call runCode to run the template's code.
+    runCode(mockData);
+
+    // Verify that the tag finished successfully.
+    assertApi('gtmOnSuccess').wasCalled();
+- name: Test - No Consent
+  code: |-
+    /*
+    This tests the consent mechanism - coming soon to an SDK near you!
+    */
+    mockData.consent = false;
+
+    // Call runCode to run the template's code.
+    runCode(mockData);
+
+    // Verify that the tag finished successfully.
+    assertApi('gtmOnSuccess').wasCalled();
+- name: Test - Data from Variable (WITH event id)
+  code: |-
+    mockData.objectPropertiesFromVariable = {
+      eventId: "my-clever-event-id",
+      dataPoint1: "someValue",
+      dataPoint2: 42,
+    };
+
+    // Call runCode to run the template's code.
+    runCode(mockData);
+
+    // Verify that the tag finished successfully.
+    assertApi('gtmOnSuccess').wasCalled();
+- name: Test - Data from Variable (WITHOUT event id)
+  code: |-
+    mockData.objectPropertiesFromVariable = {
+      dataPoint1: "someValue",
+      dataPoint2: 42,
+    };
+
+    // Call runCode to run the template's code.
+    runCode(mockData);
+
+    // Verify that the tag finished successfully.
+    assertApi('gtmOnSuccess').wasCalled();
+setup: |-
+  var mockData = {
+    token: "uuid-would-go-here",
+    dataSource: "test-source",
+    dataSet: "test-set",
+  };
 
 
 ___NOTES___
