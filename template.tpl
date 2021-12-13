@@ -187,6 +187,8 @@ const getType = require('getType');
 const log = require('logToConsole');
 const queryPermission = require('queryPermission');
 
+log('data =', data);
+
 const dataSourceSlug = data.dataSource;
 const dataSetSlug = data.dataSet;
 
@@ -199,6 +201,7 @@ const mergeObj = (obj, obj2) => {
   }
   return obj;
 };
+
 
 var wndrs;
 
@@ -218,21 +221,27 @@ let sendConfig = {
 
 let dataPayload = finalObjectProps;
 
-const loadSuccess = () => {
+const onSuccess = () => {
   log('Load Success');
   
-  // get a refernce to the wndrs object
-  wndrs = copyFromWindow('wndrs');
+  // get a refernce to the wndrs object, by calling the Wondaris function
+  //wndrs = callInWindow("Wondaris");
   
-  wndrs.sendEvent(dataPayload, sendConfig, function(wndrsResponse) {
-    log('Got a response from Wondaris: ', wndrsResponse);
+  log('Load Success 2', wndrs);
+  
+  
+  // set the variable wndrs in the window
+  //setInWindow("wndrs", wndrs, true);
+  
+  //wndrs.sendEvent(dataPayload, sendConfig, function(wndrsResponse) {
+    //log('Got a response from Wondaris: ', wndrsResponse);
   
     // Call data.gtmOnSuccess when the tag is finished.
     data.gtmOnSuccess();
-  });
+  //});
 };
 
-const loadFailure = () => {
+const onFailure = () => {
   log('Load Failure');
   data.gtmOnFailure();
 };
@@ -245,10 +254,14 @@ log('Starting', wndrs);
 
 if(wndrs === undefined) {
   // The SDK is not loaded - let's grab it and run the send
-  let sdkUrl = 'https://static.wondaris.com/sdks/webhook-collector.min.js';
+  let sdkUrl = 'https://static.wondaris.com/sdks/webhook-collector-webjs-latest.min.js';
+  sdkUrl = 'https://static.wondaris.com/sdks/webhook-collector-module-webjs-latest.min.js';
+  
+  //sdkUrl = 'https://tags.tiqcdn.com/libs/tealiumjs/latest/tealium_collect.min.js';
   
   if (queryPermission('inject_script', sdkUrl)) {
-    injectScript(sdkUrl, loadSuccess, loadFailure);
+    log('Loading SDK Script:', sdkUrl);
+    injectScript(sdkUrl, onSuccess, onFailure);
   } else {
     log('Permissions Failure', sdkUrl);
     // fail - we are not allowed to laod the SDK!
@@ -322,7 +335,7 @@ ___WEB_PERMISSIONS___
                   },
                   {
                     "type": 8,
-                    "boolean": false
+                    "boolean": true
                   }
                 ]
               },
@@ -598,6 +611,84 @@ ___WEB_PERMISSIONS___
                     "boolean": false
                   }
                 ]
+              },
+              {
+                "type": 3,
+                "mapKey": [
+                  {
+                    "type": 1,
+                    "string": "key"
+                  },
+                  {
+                    "type": 1,
+                    "string": "read"
+                  },
+                  {
+                    "type": 1,
+                    "string": "write"
+                  },
+                  {
+                    "type": 1,
+                    "string": "execute"
+                  }
+                ],
+                "mapValue": [
+                  {
+                    "type": 1,
+                    "string": "Wondaris"
+                  },
+                  {
+                    "type": 8,
+                    "boolean": true
+                  },
+                  {
+                    "type": 8,
+                    "boolean": true
+                  },
+                  {
+                    "type": 8,
+                    "boolean": true
+                  }
+                ]
+              },
+              {
+                "type": 3,
+                "mapKey": [
+                  {
+                    "type": 1,
+                    "string": "key"
+                  },
+                  {
+                    "type": 1,
+                    "string": "read"
+                  },
+                  {
+                    "type": 1,
+                    "string": "write"
+                  },
+                  {
+                    "type": 1,
+                    "string": "execute"
+                  }
+                ],
+                "mapValue": [
+                  {
+                    "type": 1,
+                    "string": "wndrs.initWondaris"
+                  },
+                  {
+                    "type": 8,
+                    "boolean": true
+                  },
+                  {
+                    "type": 8,
+                    "boolean": true
+                  },
+                  {
+                    "type": 8,
+                    "boolean": true
+                  }
+                ]
               }
             ]
           }
@@ -624,6 +715,10 @@ ___WEB_PERMISSIONS___
               {
                 "type": 1,
                 "string": "https://static.wondaris.com/sdks/*"
+              },
+              {
+                "type": 1,
+                "string": "https://static.wondaris.com/sdks/webhook-collector-module-webjs-latest.min.js"
               }
             ]
           }
@@ -705,6 +800,15 @@ scenarios:
       dataPoint1: "someValue",
       dataPoint2: 42,
     };
+
+    // Call runCode to run the template's code.
+    runCode(mockData);
+
+    // Verify that the tag finished successfully.
+    assertApi('gtmOnSuccess').wasCalled();
+- name: Test - No Config - should fail with error
+  code: |-
+    mockData = null;
 
     // Call runCode to run the template's code.
     runCode(mockData);
