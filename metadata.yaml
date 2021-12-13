@@ -3,3 +3,5 @@ documentation: "https://wondaris.atlassian.net/wiki/spaces/WPK/pages/3480616977/
 versions:
   - sha: b448bfb7e6a8f4ec526edaff1069d95a3cb36842
     changeNotes: Initial release.
+  - sha: a0d273d85af2520842f052ff446ad04646df4cc9
+    changeNotes: Update to use newer, module-based SDK.
