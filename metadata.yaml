@@ -1,6 +1,8 @@
 homepage: "https://www.wondaris.com"
 documentation: "https://wondaris.atlassian.net/wiki/spaces/WPK/pages/3480616977/GTM+Tag+Template"
 versions:
+  - sha: 9ef6cc29f5495822f56b7ba8a21269b5a862894c
+    changeNotes: Update to use new features from SDK, including transport mode.
   - sha: a0d273d85af2520842f052ff446ad04646df4cc9
     changeNotes: Update to use newer, module-based SDK.
   - sha: b448bfb7e6a8f4ec526edaff1069d95a3cb36842
