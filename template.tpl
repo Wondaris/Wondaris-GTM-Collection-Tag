@@ -170,11 +170,43 @@ ___TEMPLATE_PARAMETERS___
         "defaultValue": true
       }
     ]
+  },
+  {
+    "type": "SELECT",
+    "name": "transportMode",
+    "displayName": "Transport Mode",
+    "macrosInSelect": false,
+    "selectItems": [
+      {
+        "value": "http_auto",
+        "displayValue": "Auto"
+      },
+      {
+        "value": "http_beacon",
+        "displayValue": "Web Beacon"
+      },
+      {
+        "value": "http_xhr",
+        "displayValue": "XHR"
+      },
+      {
+        "value": "http_fetch",
+        "displayValue": "Fetch API"
+      },
+      {
+        "value": "pixel",
+        "displayValue": "Pixel"
+      }
+    ],
+    "simpleValueType": true,
+    "defaultValue": "http_auto"
   }
 ]
 
 
 ___SANDBOXED_JS_FOR_WEB_TEMPLATE___
+
+const wondarisScriptCDNUrl = 'https://static.wondaris.com/sdks/webhook-collector-module-webjs-latest.min.js';
 
 const createQueue = require('createQueue');
 const callInWindow = require('callInWindow');
@@ -187,99 +219,190 @@ const getType = require('getType');
 const log = require('logToConsole');
 const queryPermission = require('queryPermission');
 
-log('data =', data);
+//log('data =', data);
 
 const dataSourceSlug = data.dataSource;
 const dataSetSlug = data.dataSet;
 
-// Helper method
+
+/**
+ * Merge two objects resolving conflicts in favour of obj2
+ * 
+ * @param {object} obj1 - first object
+ * @param {object} obj2 - second object
+ * 
+ * @returns {object} - merged objects
+*/
 const mergeObj = (obj, obj2) => {
+  
+  if ( !obj ) obj = {};
+  if ( !obj2 ) obj2 = {};
+  
   for (let key in obj2) {
     if (obj2.hasOwnProperty(key)) {
       obj[key] = obj2[key];
     }
   }
+  
   return obj;
 };
 
-
-var wndrs;
-
+//merge payload from container variable (common) AND ad-hoc list (specific for the event)
 const objectProps = data.objectPropertyList ? makeTableMap(data.objectPropertyList, 'name', 'value') : {};
 const objectPropsFromVar = getType(data.objectPropertiesFromVariable) === 'object' ? data.objectPropertiesFromVariable : {};
 const finalObjectProps = mergeObj(data.objectPropertiesFromVariable, objectProps);
+
+
+//log('finalObjectProps = ', finalObjectProps);
+
+
 const consent = data.consent === false ? 'revoke' : 'grant';
 const token = data.token;
+const dataSource = data.dataSource;
+const dataSet = data.dataSet;
+const transportMode = data.transportMode;
 
-let sendConfig = {
+const sendConfig = {
   consent: consent,
-  token: data.token,
+  token: token,
   generateEventId: data.generateEventId,
-  dataSource: data.dataSource,
-  dataSet: data.dataSet,
+  dataSource: dataSource,
+  dataSet: dataSet,  
+  transportMode: transportMode
 };
 
 let dataPayload = finalObjectProps;
 
-const onSuccess = () => {
-  log('Load Success');
+
+/**
+ * Enhance payload by re-evaluating known keys whos value may depend on the wondaris library functionality
+ * 
+ * @param {Wondaris} wndrs - a valid Wondaris object
+ * @param {object} dataPayload - a key/value pair
+ * 
+ * @returns {object} an enhanced dataPayload
+ * 
+ */
+const enhancePayload = (wndrs, dataPayload) => {
+
+  //TODO: to consider if we need this?
+  const knownProps = {
+    fbc: (wndrs) => { return wndrs.paramStore.fbclid || wndrs.cookieMap._fbc; },
+    fbp: (wndrs) => { return wndrs.cookieMap._fbp; }
+  };
   
-  // get a refernce to the wndrs object, by calling the Wondaris function
-  //wndrs = callInWindow("Wondaris");
+  for (let key in knownProps) {
+    if ( dataPayload.hasOwnProperty( key ) && !dataPayload[key] ) {  
+      //it exists in payload and is null or empty string
+      const fetcherMethod = knownProps[key];
+      const val = fetcherMethod( wndrs );
+      
+      if ( val ) {
+        dataPayload[key] = val;
+      }
+    }
+  }
   
-  log('Load Success 2', wndrs);
+  //log('Enhanced dataPayload: ', dataPayload);
   
-  
-  // set the variable wndrs in the window
-  //setInWindow("wndrs", wndrs, true);
-  
-  //wndrs.sendEvent(dataPayload, sendConfig, function(wndrsResponse) {
-    //log('Got a response from Wondaris: ', wndrsResponse);
-  
-    // Call data.gtmOnSuccess when the tag is finished.
-    data.gtmOnSuccess();
-  //});
+  return dataPayload;
 };
 
-const onFailure = () => {
-  log('Load Failure');
+/* Inject Wondaris Script Callbacks */
+/**
+ * A callback to process success of inject Wondaris script
+ *  Calls data.gtmOnSuccess();
+ *  Initialises Wondaris object and attaches to the window
+ *  Sends event to Wondaris
+ */
+const onInjectScriptSuccess = () => {  
+  // Call data.gtmOnSuccess when the tag is finished
+  //log('onInjectScriptSuccess');
+  var wndrs = copyFromWindow('wndrs');
+  wndrs = wndrs || {};
+  if ( !wndrs.webhookCollectorSDKLoaded ) {  //can we have a racing condition here?
+    
+    wndrs = callInWindow("Wondaris");      //create Wondaris object and assign to wndrs
+    setInWindow('wndrs', wndrs, true);
+  }
+  
+  //log('sendEvent: ', wndrs, data, dataPayload, sendConfig);
+  sendEvent(wndrs, data, dataPayload, sendConfig);
+
+  //data.gtmOnSuccess();
+};
+
+/**
+ * A callback to process failure to inject Wondaris script
+ *  Calls data.gtmOnFailure(); and logs message
+ */
+const onInjectScriptFailure = () => {
+  log('Inject Script Failure');
   data.gtmOnFailure();
 };
+/* ~Inject Wondaris Script Callbacks */
 
 
-// get a refernce to the wndrs object
-wndrs = copyFromWindow('wndrs');
+/**
+ * Sends payload to Wondaris. Requires valid Wondaris object.
+ *  Calls data.gtmOnSuccess(); when hit is sent and data.gtmOnFailure(); when his has failed to be sent
+ *
+ * @param {Wondaris} wndrs - a valid Wondaris object
+ * @param {object} data - sGTM _data_ object
+ * @param {object} dataPayload - a key/value pair to be sent to Wondaris
+ * @param {object} sendConfig - a key/value pair configuration for Wondaris delivery
+ */
+const sendEvent = (wndrs, data, dataPayload, sendConfig) => {
+  //log('sendEvent', wndrs, data, dataPayload, sendConfig);
+  
+  if (wndrs && wndrs.webhookCollectorSDKLoaded) {
+    
+    dataPayload = enhancePayload(wndrs, dataPayload);    
+    wndrs.sendEvent(dataPayload, sendConfig, function(wndrsResponse) {
 
-log('Starting', wndrs);
+      log('Got a response from Wondaris: ', wndrsResponse);
+
+      // Call data.gtmOnSuccess when the tag is finished.
+      data.gtmOnSuccess();
+    });
+  }
+  else {
+    
+    //log('wndrs is not defined');
+    data.gtmOnFailure();
+  }
+};
+
+
+// get a reference to the wndrs object
+var wndrs = copyFromWindow('wndrs');
+
+//log('Starting', wndrs);
 
 if(wndrs === undefined) {
   // The SDK is not loaded - let's grab it and run the send
-  let sdkUrl = 'https://static.wondaris.com/sdks/webhook-collector-webjs-latest.min.js';
-  sdkUrl = 'https://static.wondaris.com/sdks/webhook-collector-module-webjs-latest.min.js';
   
-  //sdkUrl = 'https://tags.tiqcdn.com/libs/tealiumjs/latest/tealium_collect.min.js';
-  
-  if (queryPermission('inject_script', sdkUrl)) {
-    log('Loading SDK Script:', sdkUrl);
-    injectScript(sdkUrl, onSuccess, onFailure);
-  } else {
-    log('Permissions Failure', sdkUrl);
+  if (queryPermission('inject_script', wondarisScriptCDNUrl)) {
+    
+    //log('Inject Wondaris Script - Loading SDK Script: ', wondarisScriptCDNUrl);
+    injectScript(wondarisScriptCDNUrl, onInjectScriptSuccess, onInjectScriptFailure);
+  }
+  else {
+    
+    //log('Inject Wondaris Script - Permissions Failure', wondarisScriptCDNUrl);
     // fail - we are not allowed to laod the SDK!
     data.gtmOnFailure();
   }
-} else if (wndrs.webhookCollectorSDKLoaded) {
+}
+else if (wndrs.webhookCollectorSDKLoaded) {  
   // the Wondaris SDK is loaded and ready to rock - just send it
-  log('Run Send Directly', wndrs);
   
-  wndrs.sendEvent(dataPayload, sendConfig, function(wndrsResponse) {
-    log('Got a response from Wondaris: ', wndrsResponse);
+  //log('Inject Wondaris Script - Run Send Directly', wndrs);  
+  sendEvent(wndrs, data, dataPayload, sendConfig);
+} 
+else {
   
-    // Call data.gtmOnSuccess when the tag is finished.
-    data.gtmOnSuccess();
-  });
-} else {
-  
-  log('Run Failure', wndrs);
+  //log('Inject Wondaris Script - Run Failure: ', wndrs);
   // fail - there is a wndrs object on the window, but it is not part of the SDK
   data.gtmOnFailure();
 }
@@ -817,9 +940,9 @@ scenarios:
     assertApi('gtmOnSuccess').wasCalled();
 setup: |-
   var mockData = {
-    token: "uuid-would-go-here",
-    dataSource: "test-source",
-    dataSet: "test-set",
+    token: "edb2da74-9176-4146-8354-91b2dd1690c1", //"uuid-would-go-here",
+    dataSource: "test-wondaris-webhook", //"test-source",
+    dataSet: "test-web-events" //"test-set",
   };
 
 
