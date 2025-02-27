@@ -95,6 +95,33 @@ ___TEMPLATE_PARAMETERS___
   },
   {
     "type": "SELECT",
+    "name": "region",
+    "displayName": "Webhook region",
+    "selectItems": [
+      {
+        "value": "global",
+        "displayValue": "Global"
+      },
+      {
+        "value": "us",
+        "displayValue": "United States"
+      },
+      {
+        "value": "eu",
+        "displayValue": "Europe"
+      },
+      {
+        "value": "au",
+        "displayValue": "Australia"
+      }
+    ],
+    "simpleValueType": true,
+    "defaultValue": "global",
+    "help": "Which region to send the data to. This setting is to enforce a data pre-processing region \u0026 not for data storage (this is set in the Wondaris configuration).",
+    "alwaysInSummary": true
+  },
+  {
+    "type": "SELECT",
     "name": "consent",
     "displayName": "Consent Granted (GDPR)",
     "macrosInSelect": true,
@@ -162,44 +189,58 @@ ___TEMPLATE_PARAMETERS___
     "type": "GROUP",
     "subParams": [
       {
+        "type": "SELECT",
+        "name": "transportMode",
+        "displayName": "Transport Mode",
+        "macrosInSelect": false,
+        "selectItems": [
+          {
+            "value": "http_auto",
+            "displayValue": "Auto"
+          },
+          {
+            "value": "http_beacon",
+            "displayValue": "Web Beacon"
+          },
+          {
+            "value": "http_xhr",
+            "displayValue": "XHR"
+          },
+          {
+            "value": "http_fetch",
+            "displayValue": "Fetch API"
+          },
+          {
+            "value": "pixel",
+            "displayValue": "Pixel"
+          }
+        ],
+        "simpleValueType": true,
+        "defaultValue": "http_auto"
+      },
+      {
         "help": "The Wondaris SDK will generate an event Id automatically if it is not sent into the data payload (as \u003cstrong\u003eeventId\u003c/strong\u003e key).\n\u003cbr/\u003e\u003cbr/\u003e\n\nIf you want to share the event Id with other tags (eg: Facebook Pixels) use \u003cstrong\u003ewndrs.utils.getEventId()\u003c/strong\u003e to generate an id for use in the data payload being sent to both Wondaris \u0026 other tags.",
         "simpleValueType": true,
         "name": "generateEventId",
         "checkboxText": "Automatically Generate Event Id",
         "type": "CHECKBOX",
         "defaultValue": true
+      },
+      {
+        "type": "TEXT",
+        "name": "sdkScriptURL",
+        "displayName": "SDK Script URL",
+        "simpleValueType": true,
+        "canBeEmptyString": false,
+        "defaultValue": "https://static.wondaris.com/sdks/webhook-collector-module-webjs-latest.min.js",
+        "help": "If you would like to set the url where the Wondaris SDK is loaded from, enter it here. This is useful when hosting the SDK on your servers or mapping your domain to the Wondaris servers.",
+        "valueValidators": [
+          {
+            "type": "NON_EMPTY"
+          }
+        ]
       }
     ]
-  },
-  {
-    "type": "SELECT",
-    "name": "transportMode",
-    "displayName": "Transport Mode",
-    "macrosInSelect": false,
-    "selectItems": [
-      {
-        "value": "http_auto",
-        "displayValue": "Auto"
-      },
-      {
-        "value": "http_beacon",
-        "displayValue": "Web Beacon"
-      },
-      {
-        "value": "http_xhr",
-        "displayValue": "XHR"
-      },
-      {
-        "value": "http_fetch",
-        "displayValue": "Fetch API"
-      },
-      {
-        "value": "pixel",
-        "displayValue": "Pixel"
-      }
-    ],
-    "simpleValueType": true,
-    "defaultValue": "http_auto"
   }
 ]
 
@@ -261,6 +302,7 @@ const token = data.token;
 const dataSource = data.dataSource;
 const dataSet = data.dataSet;
 const transportMode = data.transportMode;
+const region = data.region;
 
 const sendConfig = {
   consent: consent,
@@ -268,10 +310,15 @@ const sendConfig = {
   generateEventId: data.generateEventId,
   dataSource: dataSource,
   dataSet: dataSet,  
-  transportMode: transportMode
+  transportMode: transportMode,
+  region: region,
 };
 
 let dataPayload = finalObjectProps;
+
+// determine the final url to load the script from
+let sdkUrl = data.sdkScriptURL || wondarisScriptCDNUrl;
+
 
 
 /**
@@ -829,24 +876,7 @@ ___WEB_PERMISSIONS___
         "publicId": "inject_script",
         "versionId": "1"
       },
-      "param": [
-        {
-          "key": "urls",
-          "value": {
-            "type": 2,
-            "listItem": [
-              {
-                "type": 1,
-                "string": "https://static.wondaris.com/sdks/*"
-              },
-              {
-                "type": 1,
-                "string": "https://static.wondaris.com/sdks/webhook-collector-module-webjs-latest.min.js"
-              }
-            ]
-          }
-        }
-      ]
+      "param": []
     },
     "clientAnnotations": {
       "isEditedByUser": true
