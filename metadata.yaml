@@ -1,6 +1,8 @@
 homepage: "https://www.wondaris.com"
 documentation: "https://wondaris.atlassian.net/wiki/spaces/WPK/pages/3480616977/GTM+Tag+Template"
 versions:
+  - sha: 6a6ce1796f68d266b7f732faa252e784881ced3b
+    changeNotes: Fix issue with region & transport mode not being set correctly.
   - sha: 06baf4e331e76996b946efbb8391070de32c74bd
     changeNotes: Update to use new features from SDK, including region.
   - sha: 9ef6cc29f5495822f56b7ba8a21269b5a862894c
