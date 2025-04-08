@@ -312,13 +312,12 @@ const sendConfig = {
   dataSet: dataSet,  
   transportMode: transportMode,
   region: region,
-};
+}; 
 
 let dataPayload = finalObjectProps;
 
 // determine the final url to load the script from
 let sdkUrl = data.sdkScriptURL || wondarisScriptCDNUrl;
-
 
 
 /**
@@ -387,6 +386,7 @@ const onInjectScriptFailure = () => {
   log('Inject Script Failure');
   data.gtmOnFailure();
 };
+
 /* ~Inject Wondaris Script Callbacks */
 
 
@@ -407,7 +407,7 @@ const sendEvent = (wndrs, data, dataPayload, sendConfig) => {
     dataPayload = enhancePayload(wndrs, dataPayload);    
     wndrs.sendEvent(dataPayload, sendConfig, function(wndrsResponse) {
 
-      log('Got a response from Wondaris: ', wndrsResponse);
+      // log('Got a response from Wondaris: ', wndrsResponse);
 
       // Call data.gtmOnSuccess when the tag is finished.
       data.gtmOnSuccess();
@@ -429,14 +429,14 @@ var wndrs = copyFromWindow('wndrs');
 if(wndrs === undefined) {
   // The SDK is not loaded - let's grab it and run the send
   
-  if (queryPermission('inject_script', wondarisScriptCDNUrl)) {
+  if (queryPermission('inject_script', sdkUrl)) {
     
-    //log('Inject Wondaris Script - Loading SDK Script: ', wondarisScriptCDNUrl);
-    injectScript(wondarisScriptCDNUrl, onInjectScriptSuccess, onInjectScriptFailure);
+    // log('Inject Wondaris Script - Loading SDK Script: ', sdkUrl);
+    injectScript(sdkUrl, onInjectScriptSuccess, onInjectScriptFailure);
   }
   else {
     
-    //log('Inject Wondaris Script - Permissions Failure', wondarisScriptCDNUrl);
+    log('Inject Wondaris Script - Permissions Failure', sdkUrl);
     // fail - we are not allowed to laod the SDK!
     data.gtmOnFailure();
   }
@@ -876,7 +876,20 @@ ___WEB_PERMISSIONS___
         "publicId": "inject_script",
         "versionId": "1"
       },
-      "param": []
+      "param": [
+        {
+          "key": "urls",
+          "value": {
+            "type": 2,
+            "listItem": [
+              {
+                "type": 1,
+                "string": "https://*.wondaris.com/*"
+              }
+            ]
+          }
+        }
+      ]
     },
     "clientAnnotations": {
       "isEditedByUser": true
@@ -972,7 +985,10 @@ setup: |-
   var mockData = {
     token: "edb2da74-9176-4146-8354-91b2dd1690c1", //"uuid-would-go-here",
     dataSource: "test-wondaris-webhook", //"test-source",
-    dataSet: "test-web-events" //"test-set",
+    dataSet: "test-web-events", //"test-set",
+    sdkScriptURL: "https://static.wondaris.com/sdks/webhook-collector-module-webjs-latest.min.js",
+    transportMode: "pixel",
+    region: "global"
   };
 
 
